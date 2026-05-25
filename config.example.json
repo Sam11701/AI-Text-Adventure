@@ -1,0 +1,9 @@
+{
+  "story_model": "nchapman/mn-12b-mag-mell-r1",
+  "story_params": {
+    "temperature": 0.85,
+    "num_predict": 300,
+    "top_p": 0.95,
+    "repeat_penalty": 1.1
+  }
+}
