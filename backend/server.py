@@ -111,6 +111,18 @@ def save_adv(slug: str):
     return {"ok": True}
 
 
+@app.post("/api/adventures/{slug}/undo")
+def undo(slug: str):
+    base = _find_base(slug)
+    load_adventure(base)
+    if len(state.get("recent", [])) < 2:
+        raise HTTPException(status_code=400, detail="nothing to undo")
+    state["recent"] = state["recent"][:-2]
+    state["meta"]["turn_counter"] = max(0, state["meta"]["turn_counter"] - 1)
+    save_trunk()
+    return {"ok": True, "recent": state["recent"]}
+
+
 @app.post("/api/adventures/{slug}/retry")
 def retry(slug: str):
     base = _find_base(slug)

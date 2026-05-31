@@ -330,6 +330,7 @@ def take_turn(player_action):
 
 def take_turn_stream(player_action):
     """Generator yielding SSE event dicts for a single turn. For web API use."""
+    print(f"\n{'='*60}\n[PLAYER] {player_action}\n{'='*60}")
     snapshot_state(player_action)
     tc = state["meta"]["turn_counter"]
     if tc > 0 and tc % LIBRARIAN_EVERY == 0:
@@ -346,6 +347,7 @@ def take_turn_stream(player_action):
         parts.append(tok)
         yield {"type": "token", "text": tok}
     story = "".join(parts).strip()
+    print(f"\n[STORY] {story}\n{'='*60}")
     state["recent"].append(story)
     state["meta"]["turn_counter"] += 1
     save_trunk()

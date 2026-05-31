@@ -69,7 +69,9 @@ def call(model, prompt, temperature=0.8, max_tokens=300, as_json=False,
 
 def util_call(prompt, label, **kw):
     with Spinner(label):
-        return call(UTILITY_MODEL, prompt, **kw)
+        result = call(UTILITY_MODEL, prompt, **kw)
+    print(f"\n[{label}]\n{result}\n")
+    return result
 
 
 def story_stream(prompt, **_ignored):
@@ -139,16 +141,30 @@ def _load_one(lms, mid):
         return mid, False
 
 
+def _loaded_model_ids(lms):
+    try:
+        r = subprocess.run([lms, "ps"], capture_output=True, timeout=10)
+        lines = r.stdout.decode("utf-8", errors="replace").splitlines()
+        return {line.split()[0] for line in lines[1:] if line.strip()}
+    except Exception:
+        return set()
+
+
 def ensure_models_loaded():
     import concurrent.futures
     lms = shutil.which("lms")
     if not lms:
         print("[lms not found in PATH — load models in LM Studio manually]")
         return
-    models = list({current_story_model(), UTILITY_MODEL})
-    print(f"[loading {len(models)} model(s) in parallel...]")
+    already = _loaded_model_ids(lms)
+    needed = {current_story_model(), UTILITY_MODEL} - already
+    for mid in already & {current_story_model(), UTILITY_MODEL}:
+        print(f"  [{mid}] already loaded")
+    if not needed:
+        return
+    print(f"[loading {len(needed)} model(s) in parallel...]")
     with concurrent.futures.ThreadPoolExecutor() as pool:
-        futures = {pool.submit(_load_one, lms, mid): mid for mid in models}
+        futures = {pool.submit(_load_one, lms, mid): mid for mid in needed}
         for f in concurrent.futures.as_completed(futures):
             mid, ok = f.result()
             print(f"  [{mid}] {'ready' if ok else 'failed — load it in LM Studio manually'}")

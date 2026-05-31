@@ -31,13 +31,13 @@ export default function GameView({ adventure, onBack }) {
     }
   }
 
-  async function handleSubmit(action) {
+  async function handleSubmit(action, display = action) {
+    if (!action || !action.trim()) return
+
     setInputDisabled(true)
     setStreamingText('')
 
-    // Add player action to messages
-    const playerMessage = { role: 'player', text: action }
-    setMessages(prev => [...prev, playerMessage])
+    if (display) setMessages(prev => [...prev, { role: 'player', text: display }])
 
     try {
       const response = await fetch(`/api/adventures/${adventure.slug}/turn`, {
@@ -94,6 +94,79 @@ export default function GameView({ adventure, onBack }) {
     }
   }
 
+  async function handleContinue() {
+    await handleSubmit('(no action - advance the scene by one beat; do not address the player)', null)
+  }
+
+  async function handleRetry() {
+    setInputDisabled(true)
+    setStreamingText('')
+    setMessages(prev => prev.slice(0, -2))
+
+    try {
+      const response = await fetch(`/api/adventures/${adventure.slug}/retry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (!response.ok) throw new Error('Failed to retry')
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let currentParagraph = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split('\n')
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim()
+            if (!data) continue
+
+            try {
+              const event = JSON.parse(data)
+
+              if (event.type === 'token') {
+                currentParagraph += event.text
+                setStreamingText(currentParagraph)
+              } else if (event.type === 'status') {
+                setStreamingText(event.text)
+              } else if (event.type === 'error') {
+                setStreamingText(`Error: ${event.text}`)
+                setInputDisabled(false)
+              } else if (event.type === 'done') {
+                if (currentParagraph) {
+                  setMessages(prev => [...prev, { role: 'story', text: currentParagraph }])
+                }
+                setStreamingText('')
+                setInputDisabled(false)
+              }
+            } catch (e) {
+              console.error('Failed to parse event:', e)
+            }
+          }
+        }
+      }
+    } catch (err) {
+      alert('Error: ' + err.message)
+      setInputDisabled(false)
+    }
+  }
+
+  async function handleErase() {
+    try {
+      const res = await fetch(`/api/adventures/${adventure.slug}/undo`, { method: 'POST' })
+      if (!res.ok) return
+      setMessages(prev => prev.slice(0, -2))
+    } catch (e) {
+      console.error('Erase failed:', e)
+    }
+  }
+
   if (loading) {
     return (
       <div style={styles.container}>
@@ -126,7 +199,13 @@ export default function GameView({ adventure, onBack }) {
       <StoryFeed messages={messages} streamingText={streamingText} />
 
       {/* Input Bar */}
-      <InputBar onSubmit={handleSubmit} disabled={inputDisabled} />
+      <InputBar
+        onSubmit={handleSubmit}
+        disabled={inputDisabled}
+        onContinue={handleContinue}
+        onRetry={handleRetry}
+        onErase={handleErase}
+      />
 
       {/* Sidebar */}
       <Sidebar
