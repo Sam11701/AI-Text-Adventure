@@ -1,0 +1,55 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #111;
+  color: #e8e8e8;
+  font-family: 'Georgia', serif;
+  line-height: 1.6;
+}
+
+button {
+  cursor: pointer;
+}
+
+textarea {
+  font-family: 'Georgia', serif;
+  background: #1a1a1a;
+  color: #e8e8e8;
+  border: 1px solid #333;
+  padding: 8px;
+  resize: none;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: #666;
+}
+
+input {
+  background: #1a1a1a;
+  color: #e8e8e8;
+  border: 1px solid #333;
+  padding: 8px;
+}
+
+input:focus {
+  outline: none;
+  border-color: #666;
+}
+
+select {
+  background: #1a1a1a;
+  color: #e8e8e8;
+  border: 1px solid #333;
+  padding: 8px;
+  cursor: pointer;
+}
+
+select:focus {
+  outline: none;
+  border-color: #666;
+}

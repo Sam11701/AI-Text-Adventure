@@ -29,7 +29,7 @@ STORY_PARAMS = [
 DEFAULT_STORY_PARAMS = {k: d for k, d, _, _, _ in STORY_PARAMS}
 
 
-ROOT_DIR = pathlib.Path(__file__).parent
+ROOT_DIR = pathlib.Path(__file__).parent.parent
 ADVENTURES_DIR = ROOT_DIR / "adventures"
 CONFIG_PATH = ROOT_DIR / "config.json"
 CARD_CATEGORIES = ["characters", "classes", "races", "locations",
