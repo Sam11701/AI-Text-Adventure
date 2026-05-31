@@ -9,7 +9,7 @@ from config import (
     INNER_TEXT_FIELDS,
     INNER_CAPS,
 )
-from llm import util_call, story_stream
+from llm import util_call, story_stream, story_stream_gen
 from storage import state, load_cards, write_card, save_trunk, snapshot_state
 
 
@@ -83,8 +83,8 @@ Answer in 3-5 terse bullets."""
     return util_call(prompt, "Thinking", temperature=0.4, max_tokens=250)
 
 
-def write_story(player_action, card_block, recent, reasoning):
-    prompt = f"""You are the narrator of an interactive text adventure. Write in second person
+def _build_story_prompt(player_action, card_block, recent, reasoning):
+    return f"""You are the narrator of an interactive text adventure. Write in second person
 ("You ..."). Write 2-4 vivid sentences continuing the story, then stop and let the player act.
 
 HARD RULES — NEVER violate:
@@ -117,7 +117,10 @@ Recent events:
 Player's action: {player_action}
 
 Continue (prose only, no choices, no questions to the player):"""
-    return story_stream(prompt)
+
+
+def write_story(player_action, card_block, recent, reasoning):
+    return story_stream(_build_story_prompt(player_action, card_block, recent, reasoning))
 
 
 def librarian_batch():
@@ -323,3 +326,29 @@ def take_turn(player_action):
     state["recent"].append(story)
     state["meta"]["turn_counter"] += 1
     save_trunk()   # autosave every turn
+
+
+def take_turn_stream(player_action):
+    """Generator yielding SSE event dicts for a single turn. For web API use."""
+    print(f"\n{'='*60}\n[PLAYER] {player_action}\n{'='*60}")
+    snapshot_state(player_action)
+    tc = state["meta"]["turn_counter"]
+    if tc > 0 and tc % LIBRARIAN_EVERY == 0:
+        yield {"type": "status", "text": "Updating memory..."}
+        run_bookkeeping()
+    state["recent"].append(player_action)
+    card_block, open_points, recent = retrieve(player_action)
+    yield {"type": "status", "text": "Thinking..."}
+    reasoning = think(player_action, card_block, open_points, recent)
+    yield {"type": "status", "text": "Writing..."}
+    story_prompt = _build_story_prompt(player_action, card_block, recent, reasoning)
+    parts = []
+    for tok in story_stream_gen(story_prompt):
+        parts.append(tok)
+        yield {"type": "token", "text": tok}
+    story = "".join(parts).strip()
+    print(f"\n[STORY] {story}\n{'='*60}")
+    state["recent"].append(story)
+    state["meta"]["turn_counter"] += 1
+    save_trunk()
+    yield {"type": "done"}
