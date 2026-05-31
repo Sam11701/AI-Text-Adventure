@@ -103,20 +103,52 @@ def story_stream(prompt, **_ignored):
     return "".join(parts).strip()
 
 
+def story_stream_gen(prompt, **_ignored):
+    """Generator variant of story_stream — yields token strings one at a time."""
+    p = current_story_params()
+    payload = {"model": current_story_model(),
+               "messages": [{"role": "user", "content": prompt}],
+               "temperature": p["temperature"], "max_tokens": p["num_predict"],
+               "top_p": p["top_p"], "repeat_penalty": p["repeat_penalty"],
+               "stream": True}
+    with requests.post(LMSTUDIO_URL, json=payload, stream=True, timeout=300) as r:
+        r.raise_for_status()
+        for raw in r.iter_lines():
+            if not raw:
+                continue
+            line = raw.decode("utf-8")
+            if line.startswith("data: "):
+                line = line[6:]
+            if line.strip() == "[DONE]":
+                break
+            try:
+                chunk = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            tok = chunk["choices"][0].get("delta", {}).get("content", "")
+            if tok:
+                yield tok
+
+
 # ---------------- model loading ----------------
+def _load_one(lms, mid):
+    try:
+        r = subprocess.run([lms, "load", mid, "--yes"], capture_output=True, timeout=120)
+        return mid, r.returncode == 0
+    except (subprocess.TimeoutExpired, OSError):
+        return mid, False
+
+
 def ensure_models_loaded():
+    import concurrent.futures
     lms = shutil.which("lms")
     if not lms:
         print("[lms not found in PATH — load models in LM Studio manually]")
         return
-    for mid in [current_story_model(), UTILITY_MODEL]:
-        with Spinner(f"Loading {mid}"):
-            try:
-                r = subprocess.run(
-                    [lms, "load", mid, "--yes"],
-                    capture_output=True, timeout=120,
-                )
-                ok = r.returncode == 0
-            except (subprocess.TimeoutExpired, OSError):
-                ok = False
-        print(f"[{mid}] {'ready' if ok else 'failed — load it in LM Studio manually'}")
+    models = list({current_story_model(), UTILITY_MODEL})
+    print(f"[loading {len(models)} model(s) in parallel...]")
+    with concurrent.futures.ThreadPoolExecutor() as pool:
+        futures = {pool.submit(_load_one, lms, mid): mid for mid in models}
+        for f in concurrent.futures.as_completed(futures):
+            mid, ok = f.result()
+            print(f"  [{mid}] {'ready' if ok else 'failed — load it in LM Studio manually'}")
