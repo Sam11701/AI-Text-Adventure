@@ -34,6 +34,10 @@ def list_adventures():
     return out
 
 
+def _read_opt(path):
+    return path.read_text(encoding="utf-8").strip() if path.is_file() else ""
+
+
 def create_adventure(display_name, premise_text):
     dirname = kebab(display_name)
     base = ADVENTURES_DIR / dirname
@@ -48,6 +52,8 @@ def create_adventure(display_name, premise_text):
     (base / "summary.md").write_text("", encoding="utf-8")
     (base / "recent.json").write_text("[]", encoding="utf-8")
     (base / "plot_points.json").write_text("[]", encoding="utf-8")
+    for fn in ("ai_instructions.md", "plot_essentials.md", "author_note.md"):
+        (base / fn).write_text("", encoding="utf-8")
     return base
 
 
@@ -59,6 +65,9 @@ def load_adventure(base):
     state["summary"] = (base / "summary.md").read_text(encoding="utf-8").strip()
     state["recent"] = json.loads((base / "recent.json").read_text(encoding="utf-8"))
     state["plot_points"] = json.loads((base / "plot_points.json").read_text(encoding="utf-8"))
+    state["ai_instructions"] = _read_opt(base / "ai_instructions.md")
+    state["plot_essentials"] = _read_opt(base / "plot_essentials.md")
+    state["author_note"] = _read_opt(base / "author_note.md")
     # ensure card category dirs exist (in case the schema grew)
     for cat in CARD_CATEGORIES:
         (base / "cards" / cat).mkdir(parents=True, exist_ok=True)
@@ -74,6 +83,9 @@ def save_trunk():
     (base / "recent.json").write_text(json.dumps(state["recent"], indent=2), encoding="utf-8")
     (base / "plot_points.json").write_text(json.dumps(state["plot_points"], indent=2),
                                            encoding="utf-8")
+    for field in ("ai_instructions", "plot_essentials", "author_note"):
+        val = state.get(field, "")
+        (base / f"{field}.md").write_text(val + ("\n" if val else ""), encoding="utf-8")
 
 
 INNER_FIELDS = ["memory", "goals", "secrets", "plans"]   # lists

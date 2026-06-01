@@ -1,15 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import StoryFeed from '../components/StoryFeed'
 import InputBar from '../components/InputBar'
-import Sidebar from '../components/Sidebar'
 
-export default function GameView({ adventure, onBack }) {
+export default function GameView({ adventure, onBack, onEdit }) {
   const [premise, setPremise] = useState('')
   const [messages, setMessages] = useState([])
   const [streamingText, setStreamingText] = useState('')
   const [loading, setLoading] = useState(true)
   const [inputDisabled, setInputDisabled] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     fetchState()
@@ -183,8 +181,8 @@ export default function GameView({ adventure, onBack }) {
           ← Back
         </button>
         <h1 style={styles.adventureTitle}>{adventure.name}</h1>
-        <button onClick={() => setSidebarOpen(true)} style={styles.cardsButton}>
-          Cards
+        <button onClick={onEdit} style={styles.cardsButton}>
+          Edit
         </button>
       </div>
 
@@ -207,12 +205,6 @@ export default function GameView({ adventure, onBack }) {
         onErase={handleErase}
       />
 
-      {/* Sidebar */}
-      <Sidebar
-        slug={adventure.slug}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
     </div>
   )
 }
